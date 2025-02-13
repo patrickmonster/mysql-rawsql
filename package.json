@@ -1,6 +1,6 @@
 {
     "name": "mysql-rowquery",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "mysql row query",
     "main": "dist/cjs/index.js",
     "module": "dist/mjs/index.js",

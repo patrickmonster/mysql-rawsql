@@ -10,7 +10,7 @@ export const format = mysql.format;
 // select / insert / update / delete
 const newLine = /\n/g;
 
-export interface sqlInsertUpdate {
+export interface SqlInsertUpdateResult {
     affectedRows: number;
     changedRows: number;
     insertId: number;
@@ -32,8 +32,8 @@ export enum LogType {
 // SQL 타입 - insert / update / delete 인 경우  queryFunctionType 의 리턴 타입이 sqlInsertUpdate
 export type SqlInsertUpdate = SQLType.insert | SQLType.update | SQLType.delete;
 
-export type ResqultQuery<E> = E extends SqlInsertUpdate ? sqlInsertUpdate : Array<E>;
-export type queryFunctionType = <E>(query: string, ...params: any[]) => Promise<ResqultQuery<E>>;
+export type ResqultQuery<E> = E extends SqlInsertUpdate ? SqlInsertUpdateResult : Array<E>;
+export type QueryFunctionType = <E>(query: string, ...params: any[]) => Promise<ResqultQuery<E>>;
 
 export type SqlResultParser = (k: string, v: any) => any;
 export type ErrorLog = (query: string, params: any[]) => void;
@@ -77,7 +77,7 @@ const resultParser = (rows: any[] | any) => JSON.parse(JSON.stringify(rows, _par
  */
 const getConnection = async <T>(
     pool: Pool,
-    connectionPool: (queryFunction: queryFunctionType) => Promise<T>,
+    connectionPool: (queryFunction: QueryFunctionType) => Promise<T>,
     isTransaction = false
 ) => {
     let connect: PoolConnection | null = null;
@@ -129,7 +129,7 @@ export default getConnection;
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 export const query = async <E>(pool: Pool, query: string, ...params: any[]): Promise<ResqultQuery<E>> =>
-    await getConnection(pool, async (c: queryFunctionType) => c(query, ...params));
+    await getConnection(pool, async (c: QueryFunctionType) => c(query, ...params));
 
 export const selectOne = async <E>(pool: Pool, _query: string, ...params: any[]) =>
     query<E>(pool, _query, ...params).then(([row]: any) => (Array.isArray(row) ? row[0] : row));

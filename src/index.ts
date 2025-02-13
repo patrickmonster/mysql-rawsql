@@ -5,6 +5,10 @@ import { Paging, SelectPagingResult } from 'interface/page';
 import mysql, { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { env } from 'process';
 
+// out interface
+export * from 'interface';
+export * from 'interface/page';
+
 export const format = mysql.format;
 
 // 커넥션 쿼리 함수
@@ -26,6 +30,8 @@ export const setParser = (parser: SqlResultParser) => {
 export const setErrorLog = (errorLog: ErrorLog) => {
     _errorLog = errorLog;
 };
+
+export const createPool = mysql.createPool;
 
 export const setLimit = (l: number) => (limit = l);
 const sqlLogger = (query: string, params: any[], rows: any[] | any) => {
@@ -101,6 +107,9 @@ export default getConnection;
 
 export const query = async <E>(pool: Pool, query: string, ...params: any[]): Promise<ResqultQuery<E>> =>
     await getConnection(pool, async (c: queryFunctionType) => c(query, ...params));
+
+export const selectOne = async <E>(pool: Pool, _query: string, ...params: any[]) =>
+    query<E>(pool, _query, ...params).then(([row]: any) => (Array.isArray(row) ? row[0] : row));
 
 /**
  *

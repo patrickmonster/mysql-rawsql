@@ -1,13 +1,13 @@
 'use strict';
 
-import { ErrorLog, LogType, queryFunctionType, ResqultQuery, SqlResultParser } from 'interface';
-import { Paging, SelectPagingResult } from 'interface/page';
 import mysql, { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { env } from 'process';
+import { ErrorLog, LogType, queryFunctionType, ResqultQuery, SqlResultParser } from './interface';
+import { Paging, SelectPagingResult } from './interface/page';
 
 // out interface
-export * from 'interface';
-export * from 'interface/page';
+export * from './interface';
+export * from './interface/page';
 
 export const format = mysql.format;
 

@@ -139,6 +139,33 @@ WHERE message_id = ?
     );
 ```
 
+## SELECT_PERSENT
+```
+// division [length] of [index]
+export const selectMessage = async (index : number, length = 1000) =>
+    query<{
+        message_id : string
+        message : string
+        create_at : string
+        update_at : string
+    }>(
+        pool,
+        `
+SELECT 
+    message_id
+    , message
+    , create_at
+    , update_at
+FROM message
+WHERE 1=1
+        `, {
+            index,
+            length
+        }
+    );
+```
+
+
 ## SELECT_ONE
 ```
 export const selectMessage = async (message_id?: number) =>

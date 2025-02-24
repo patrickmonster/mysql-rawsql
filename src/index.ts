@@ -2,14 +2,6 @@
 import mysql, { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
 import { env } from 'process';
 
-// out interface
-
-export const format = mysql.format;
-
-// 커넥션 쿼리 함수
-// select / insert / update / delete
-const newLine = /\n/g;
-
 export interface SqlInsertUpdateResult {
     affectedRows: number;
     changedRows: number;
@@ -28,6 +20,28 @@ export enum LogType {
     SIMPLE = 'SIMPLE',
     NONE = 'NONE',
 }
+export interface Paging {
+    page: number;
+    limit?: number;
+}
+export type seleceQueryOption = {
+    query: string;
+    page?: number;
+    limit?: number;
+};
+
+export type SelectPagingResult<E> = {
+    total: number;
+    totalPage: number;
+    limit: number;
+    page: number;
+    list: E[];
+};
+
+export interface Present {
+    index: number;
+    length: number;
+}
 
 // SQL 타입 - insert / update / delete 인 경우  queryFunctionType 의 리턴 타입이 sqlInsertUpdate
 export type SqlInsertUpdate = SQLType.insert | SQLType.update | SQLType.delete;
@@ -38,8 +52,13 @@ export type QueryFunctionType = <E>(query: string, ...params: any[]) => Promise<
 export type SqlResultParser = (k: string, v: any) => any;
 export type ErrorLog = (query: string, params: any[]) => void;
 
+///////////////////////////////////////////////////////////////////////////////////////////
+
 let limit = 10; // 기본 페이징 사이즈 (페이징 쿼리에 파라메타가 생략된 경우)
 let _log: LogType = LogType.ALL;
+const newLine = /\n/g;
+
+export const format = mysql.format;
 let _parser: SqlResultParser = (k, v) => v;
 let _errorLog: (query: string, params: any[]) => void = () => {};
 
@@ -134,24 +153,6 @@ export const query = async <E>(pool: Pool, query: string, ...params: any[]): Pro
 export const selectOne = async <E>(pool: Pool, _query: string, ...params: any[]) =>
     query<E>(pool, _query, ...params).then(([row]: any) => (Array.isArray(row) ? row[0] : row));
 
-export interface Paging {
-    page: number;
-    limit?: number;
-}
-export type seleceQueryOption = {
-    query: string;
-    page?: number;
-    limit?: number;
-};
-
-export type SelectPagingResult<E> = {
-    total: number;
-    totalPage: number;
-    limit: number;
-    page: number;
-    list: E[];
-};
-
 /**
  *
  * @param pool
@@ -196,6 +197,39 @@ export const selectPaging = async <E>(
         if (connect) connect.release();
     }
 };
+
+/**
+ * 페이징 처리된 결과를 반환합니다.
+ * @param pool
+ * @param _query
+ * @param present
+ * @param params
+ * @returns
+ */
+export const selectPersent = async <E>(pool: Pool, _query: string, present: Present, ...params: any[]) =>
+    await getConnection(
+        pool,
+        async query => {
+            /// 전체 카운트
+            const cnt = await query<{ total: number }[]>(
+                `SELECT COUNT(1) AS total FROM (\n${_query}\n) A`,
+                params
+            ).then(([[rows]]) => rows.total);
+
+            const { index, length } = present;
+            const limit = Math.ceil(cnt / length); // 테스크당 데이터 처리에 필요한 개수
+            const rows = await query<E>(`${_query}\nlimit ?, ?`, ...params, index <= 0 ? 0 : index * limit, limit);
+
+            return {
+                total: cnt,
+                totalPage: Math.ceil(cnt / limit) - 1,
+                limit,
+                index,
+                list: rows,
+            };
+        },
+        true
+    );
 
 /**
  * 쿼리의 해시키를 생성합니다.

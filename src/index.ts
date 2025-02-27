@@ -50,7 +50,6 @@ export type QueryFunctionType = <E>(query: string, ...params: any[]) => Promise<
 
 export type SqlResultParser = (k: string, v: any) => any;
 export type ErrorLog = (query: string, params: any[]) => void;
-
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 let limit = 10; // 기본 페이징 사이즈 (페이징 쿼리에 파라메타가 생략된 경우)
@@ -60,6 +59,24 @@ const newLine = /\n/g;
 export const format = mysql.format;
 let _parser: SqlResultParser = (k, v) => v;
 let _errorLog: (query: string, params: any[]) => void = () => {};
+
+let _isSlowQuery = false;
+let _slowQueryTime = 5000;
+
+const slowQueryList = new Map<
+    number,
+    {
+        query: string;
+        params: any[];
+        time: number;
+    }
+>();
+
+export const setSlowQueryTime = (time: number) => (_slowQueryTime = time);
+export const getSlowQueryList = () => _isSlowQuery && slowQueryList.values();
+export const clearSlowQueryList = () => slowQueryList.clear();
+
+export const setSlowQuery = (isSlowQuery: boolean) => (_isSlowQuery = isSlowQuery);
 
 export const setLog = (log: LogType) => {
     _log = log;
@@ -124,8 +141,24 @@ const getConnection = async <T>(
         pool,
         async connect =>
             await connectionPool(async (query: string, ...params: any[]) => {
+                const startTime = Date.now();
                 const [rows] = await connect.query(query, params);
-                sqlLogger(query, params, rows);
+                const runningTime = Date.now() - startTime;
+                if (_isSlowQuery && runningTime > _slowQueryTime) {
+                    const key = getQueryKey(query, ...params);
+                    if (!slowQueryList.has(key)) {
+                        slowQueryList.set(key, {
+                            query,
+                            params,
+                            time: runningTime,
+                        });
+                        console.log(
+                            `Slow Query ${runningTime}ms ::`,
+                            mysql.format(query, params).replace(newLine, ' ')
+                        );
+                    }
+                }
+                sqlLogger(`/* RUNNING ${runningTime}ms */ ${query}`, params, rows);
                 return Array.isArray(rows)
                     ? resultParser(rows)
                     : {

@@ -1,4 +1,4 @@
-# interval-queue
+# mysql-rowquery
 
 쿼리 심플 관리
 

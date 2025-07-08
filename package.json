@@ -1,7 +1,7 @@
 {
-    "name": "mysql-rowquery",
+    "name": "mysql-rawquery",
     "version": "1.1.1",
-    "description": "mysql row query",
+    "description": "mysql raw query",
     "main": "dist/cjs/index.js",
     "module": "dist/mjs/index.js",
     "types": "dist/index.d.ts",
@@ -20,10 +20,10 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/patrickmonster/mysql-rowsql.git"
+        "url": "git+https://github.com/patrickmonster/mysql-rawsql.git"
     },
     "author": "Soung jin Ryu <neocat@kakao.com>",
-    "homepage": "https://github.com/patrickmonster/mysql-rowsql#readme",
+    "homepage": "https://github.com/patrickmonster/mysql-rawsql#readme",
     "license": "ISC",
     "devDependencies": {
         "@types/jest": "^30.0.0",

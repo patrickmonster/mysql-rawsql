@@ -1,13 +1,13 @@
-# mysql-rowquery
+# mysql-rawquery
 
 TypeScript를 위한 간편한 MySQL 쿼리 라이브러리
 
-[![npm version](https://badge.fury.io/js/mysql-rowquery.svg)](https://badge.fury.io/js/mysql-rowquery)
+[![npm version](https://badge.fury.io/js/mysql-rawquery.svg)](https://badge.fury.io/js/mysql-rawquery)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 
 ## 개요
 
-mysql-rowquery는 TypeScript 프로젝트에서 MySQL 데이터베이스를 쉽고 안전하게 사용할 수 있도록 도와주는 라이브러리입니다.
+mysql-rawquery는 TypeScript 프로젝트에서 MySQL 데이터베이스를 쉽고 안전하게 사용할 수 있도록 도와주는 라이브러리입니다.
 
 ### 주요 특징
 
@@ -30,15 +30,15 @@ mysql-rowquery는 TypeScript 프로젝트에서 MySQL 데이터베이스를 쉽�
 ## 설치
 
 ```bash
-npm install mysql-rowquery
+npm install mysql-rawquery
 # 또는
-yarn add mysql-rowquery
+yarn add mysql-rawquery
 ```
 
 ## 기본 설정
 
 ```typescript
-import { createPool, setLog, setLimit, LogType } from 'mysql-rowquery';
+import { createPool, setLog, setLimit, LogType } from 'mysql-rawquery';
 
 const pool = createPool({
     host: process.env.DB_HOST,
@@ -56,7 +56,7 @@ setLog(LogType.ALL); // ALL, SIMPLE, NONE
 setLimit(20);
 
 // 슬로우 쿼리 모니터링 설정
-import { setSlowQuery, setSlowQueryTime } from 'mysql-rowquery';
+import { setSlowQuery, setSlowQueryTime } from 'mysql-rawquery';
 setSlowQuery(true);
 setSlowQueryTime(1000); // 1초 이상 쿼리를 슬로우 쿼리로 간주
 ```
@@ -76,7 +76,7 @@ import _getConnection, {
     Paging,
     Present,
     QueryFunctionType,
-} from 'mysql-rowquery';
+} from 'mysql-rawquery';
 
 const pool = createPool({
     host: process.env.DB_HOST,
@@ -154,7 +154,7 @@ const users = await query<User[]>(
 );
 
 // INSERT/UPDATE/DELETE 쿼리
-import { SqlInsertUpdateResult } from 'mysql-rowquery';
+import { SqlInsertUpdateResult } from 'mysql-rawquery';
 const result = await query<SqlInsertUpdateResult>(
     'INSERT INTO users SET ?',
     { name: 'John', email: 'john@example.com' }
@@ -178,7 +178,7 @@ const user = await selectOne<User>(
 페이지네이션을 적용하여 데이터를 조회합니다.
 
 ```typescript
-import { Paging, SelectPagingResult } from 'mysql-rowquery';
+import { Paging, SelectPagingResult } from 'mysql-rawquery';
 
 // 페이지 번호만 지정 (기본 limit 사용)
 const result1 = await selectPaging<User>(
@@ -207,7 +207,7 @@ console.log('데이터:', result2.list);
 비율 기반으로 데이터를 조회합니다. 대용량 데이터를 여러 작업자가 분할 처리할 때 유용합니다.
 
 ```typescript
-import { Present } from 'mysql-rowquery';
+import { Present } from 'mysql-rawquery';
 
 // 전체 데이터를 10개 구간으로 나누어 첫 번째 구간 조회
 const present: Present = { index: 0, length: 10 };
@@ -229,7 +229,7 @@ console.log('이 구간의 데이터:', result.list);
 값이 유효한 경우에만 쿼리를 반환합니다.
 
 ```typescript
-import { calTo } from 'mysql-rowquery';
+import { calTo } from 'mysql-rawquery';
 
 const buildQuery = (userId?: number, status?: string) => `
 SELECT * FROM users 
@@ -251,7 +251,7 @@ const query2 = buildQuery(null, 'active');
 LIKE 조건을 위한 쿼리를 생성합니다.
 
 ```typescript
-import { calLikeTo } from 'mysql-rowquery';
+import { calLikeTo } from 'mysql-rawquery';
 
 const searchQuery = (keyword?: string) => `
 SELECT * FROM users
@@ -269,7 +269,7 @@ const query = searchQuery('john');
 객체를 AND 조건 쿼리로 변환합니다.
 
 ```typescript
-import { objectToAndQury } from 'mysql-rowquery';
+import { objectToAndQury } from 'mysql-rawquery';
 
 const conditions = { 
     status: 'active', 
@@ -339,7 +339,7 @@ transferMoney(1, 2, 1000)
 ### INSERT/UPDATE/DELETE 예시
 
 ```typescript
-import { SqlInsertUpdateResult } from 'mysql-rowquery';
+import { SqlInsertUpdateResult } from 'mysql-rawquery';
 
 // INSERT
 const createUser = async (userData: Partial<User>) => {
@@ -386,7 +386,7 @@ const deleteUser = async (userId: number) => {
 ### 로깅 설정
 
 ```typescript
-import { setLog, LogType } from 'mysql-rowquery';
+import { setLog, LogType } from 'mysql-rawquery';
 
 // 모든 SQL과 결과를 JSON으로 출력
 setLog(LogType.ALL);
@@ -406,7 +406,7 @@ import {
     setSlowQueryTime, 
     getSlowQueryList, 
     clearSlowQueryList 
-} from 'mysql-rowquery';
+} from 'mysql-rawquery';
 
 // 슬로우 쿼리 모니터링 활성화
 setSlowQuery(true);
@@ -429,7 +429,7 @@ clearSlowQueryList();
 ### 기타 설정
 
 ```typescript
-import { setLimit, setParser, setErrorLog } from 'mysql-rowquery';
+import { setLimit, setParser, setErrorLog } from 'mysql-rawquery';
 
 // 기본 페이지 크기 설정
 setLimit(50);

@@ -1,6 +1,6 @@
 {
     "name": "mysql-rawquery",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "description": "mysql raw query",
     "main": "dist/cjs/index.js",
     "module": "dist/mjs/index.js",

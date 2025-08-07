@@ -1,7 +1,7 @@
 {
-    "name": "typed-sql",
-    "version": "1.0.0",
-    "description": "TypeScript SQL query parser with compile-time column type extraction",
+    "name": "mysql-rawquery",
+    "version": "1.1.1",
+    "description": "mysql raw query",
     "main": "dist/cjs/index.js",
     "module": "dist/mjs/index.js",
     "types": "dist/index.d.ts",

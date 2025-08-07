@@ -1,14 +1,14 @@
-# typed-sql
+# mysql-rowquery
 
 🚀 TypeScript SQL query parser with **compile-time column type extraction**
 
-[![npm version](https://badge.fury.io/js/typed-sql.svg)](https://badge.fury.io/js/typed-sql)
+[![npm version](https://badge.fury.io/js/mysql-rowquery.svg)](https://badge.fury.io/js/mysql-rowquery)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 [![TypeScript](https://img.shields.io/badge/TypeScript-4.1+-blue.svg)](https://www.typescriptlang.org/)
 
 ## 개요
 
-typed-sql은 TypeScript에서 SQL 쿼리의 컬럼 타입을 **컴파일 타임에 추출**할 수 있는 혁신적인 라이브러리입니다. 실행 없이도 SQL 쿼리에서 정확한 컬럼 타입을 추론하여 타입 안전한 개발을 가능하게 합니다.
+mysql-rowquery는 TypeScript 프로젝트에서 MySQL 데이터베이스를 쉽고 안전하게 사용할 수 있도록 도와주는 라이브러리입니다.
 
 ### 🌟 주요 특징
 
@@ -31,11 +31,9 @@ typed-sql은 TypeScript에서 SQL 쿼리의 컬럼 타입을 **컴파일 타임�
 ## 📦 설치
 
 ```bash
-npm install typed-sql
+npm install mysql-rowquery
 # 또는
-yarn add typed-sql
-# 또는
-pnpm add typed-sql
+yarn add mysql-rowquery
 ```
 
 > **요구사항**: TypeScript 4.1+ (템플릿 리터럴 타입 지원)
@@ -47,7 +45,7 @@ pnpm add typed-sql
 ### 컴파일 타임 타입 추론
 
 ```typescript
-import { ExtractColumns, createTypedQuery } from 'typed-sql';
+import { createPool, setLog, setLimit, LogType } from 'mysql-rowquery';
 
 // 1. 타입만 추출 (실행 없이 컴파일 타임에 추론!)
 type UserColumns = ExtractColumns<'SELECT id, name, email FROM users'>;
@@ -61,15 +59,26 @@ const query = createTypedQuery('SELECT id, name, email FROM users');
 type AliasColumns = ExtractColumns<'SELECT id as user_id, name as user_name FROM users'>;
 // AliasColumns 타입: ["user_id", "user_name"]
 
-// 4. 집계 함수
-type AggColumns = ExtractColumns<'SELECT COUNT(*) as total, SUM(amount) as sum_amount FROM orders'>;
-// AggColumns 타입: ["total", "sum_amount"]
+// 슬로우 쿼리 모니터링 설정
+import { setSlowQuery, setSlowQueryTime } from 'mysql-rowquery';
+setSlowQuery(true);
+setSlowQueryTime(1000); // 1초 이상 쿼리를 슬로우 쿼리로 간주
 ```
 
 ### 타입 안전한 쿼리 빌더
 
 ```typescript
-import { createTypedQuery, select } from 'typed-sql';
+// database.ts - 공통 데이터베이스 유틸리티
+import _getConnection, {
+    query as _query,
+    selectOne as _selectOne,
+    selectPaging as _selectPaging,
+    selectPersent as _selectPersent,
+    createPool,
+    Paging,
+    Present,
+    QueryFunctionType,
+} from 'mysql-rowquery';
 
 // 타입 안전한 쿼리 생성
 const query = createTypedQuery('SELECT id, name, email FROM users');
@@ -114,25 +123,275 @@ function expectColumns<Expected extends readonly string[]>(expected: Expected) {
 const validQuery = expectColumns(['id', 'name', 'email'])('SELECT id, name, email FROM users');
 // ✅ 통과
 
-const invalidQuery = expectColumns(['id', 'name'])('SELECT id, name, email FROM users');
-// ❌ 컴파일 에러: 타입이 맞지 않음
+// INSERT/UPDATE/DELETE 쿼리
+import { SqlInsertUpdateResult } from 'mysql-rowquery';
+const result = await query<SqlInsertUpdateResult>(
+    'INSERT INTO users SET ?',
+    { name: 'John', email: 'john@example.com' }
+);
+console.log('삽입된 ID:', result.insertId);
+```
 
 // 4. WITH 절 (CTE) 지원
 type WithColumns = ExtractColumns<'WITH v_tmp AS (SELECT user_idx, level FROM users) SELECT idx, level FROM v_tmp'>;
 // WithColumns 타입: ["idx", "level"]
 
-// 5. 실용적인 사용 예제
-function createTypedSelectQuery<T extends string>(sql: T) {
-    type Columns = ExtractColumns<T>;
-    
-    return {
-        sql,
-        columns: null as any as Columns,
-        execute: async <TRecord = Record<string, any>>(): Promise<TRecord[]> => {
-            // 실제 쿼리 실행 로직
-            return [] as TRecord[];
+단일 레코드를 조회합니다.
+
+```typescript
+const user = await selectOne<User>(
+    'SELECT * FROM users WHERE id = ?',
+    userId
+);
+```
+
+#### `selectPaging<T>(pool, query, paging, ...params): Promise<SelectPagingResult<T>>`
+
+페이지네이션을 적용하여 데이터를 조회합니다.
+
+```typescript
+import { Paging, SelectPagingResult } from 'mysql-rowquery';
+
+// 페이지 번호만 지정 (기본 limit 사용)
+const result1 = await selectPaging<User>(
+    'SELECT * FROM users WHERE status = ?',
+    0, // 첫 번째 페이지
+    'active'
+);
+
+// Paging 객체 사용
+const paging: Paging = { page: 2, limit: 20 };
+const result2 = await selectPaging<User>(
+    'SELECT * FROM users WHERE status = ?',
+    paging,
+    'active'
+);
+
+console.log('전체 개수:', result2.total);
+console.log('전체 페이지:', result2.totalPage);
+console.log('현재 페이지:', result2.page);
+console.log('페이지 크기:', result2.limit);
+console.log('데이터:', result2.list);
+```
+
+#### `selectPersent<T>(pool, query, present, ...params): Promise<SelectPagingResult<T> & { index: number }>`
+
+비율 기반으로 데이터를 조회합니다. 대용량 데이터를 여러 작업자가 분할 처리할 때 유용합니다.
+
+```typescript
+import { Present } from 'mysql-rowquery';
+
+// 전체 데이터를 10개 구간으로 나누어 첫 번째 구간 조회
+const present: Present = { index: 0, length: 10 };
+const result = await selectPersent<User>(
+    'SELECT * FROM users WHERE status = ?',
+    present,
+    'active'
+);
+
+console.log('처리 인덱스:', result.index);
+console.log('전체 개수:', result.total);
+console.log('이 구간의 데이터:', result.list);
+```
+
+### 유틸리티 함수
+
+#### `calTo(query, ...values): string`
+
+값이 유효한 경우에만 쿼리를 반환합니다.
+
+```typescript
+import { calTo } from 'mysql-rowquery';
+
+const buildQuery = (userId?: number, status?: string) => `
+SELECT * FROM users 
+WHERE 1=1
+${calTo('AND user_id = ?', userId)}
+${calTo('AND status = ?', status)}
+`;
+
+// userId가 null이면 해당 조건은 주석 처리됨
+const query1 = buildQuery(123, 'active');
+// SELECT * FROM users WHERE 1=1 AND user_id = 123 AND status = 'active'
+
+const query2 = buildQuery(null, 'active');
+// SELECT * FROM users WHERE 1=1 -- calTo AND status = 'active'
+```
+
+#### `calLikeTo(query, ...values): string`
+
+LIKE 조건을 위한 쿼리를 생성합니다.
+
+```typescript
+import { calLikeTo } from 'mysql-rowquery';
+
+const searchQuery = (keyword?: string) => `
+SELECT * FROM users
+WHERE 1=1
+${calLikeTo('AND name LIKE ?', keyword)}
+`;
+
+// keyword가 'john'이면 '%john%'으로 변환
+const query = searchQuery('john');
+// SELECT * FROM users WHERE 1=1 AND name LIKE '%john%'
+```
+
+#### `objectToAndQury(obj): string`
+
+객체를 AND 조건 쿼리로 변환합니다.
+
+```typescript
+import { objectToAndQury } from 'mysql-rowquery';
+
+const conditions = { 
+    status: 'active', 
+    age: 25, 
+    city: null,  // null 값은 스킵됨
+    country: 'Korea' 
+};
+
+const whereClause = objectToAndQury(conditions);
+// AND status = active
+// AND age = 25
+// /* SKIP :: city */
+// AND country = Korea
+```
+### 트랜잭션 처리
+
+#### `getConnection<T>(pool, connectionPool, isTransaction): Promise<T>`
+
+트랜잭션을 포함한 복잡한 데이터베이스 작업을 처리합니다.
+
+```typescript
+// 트랜잭션 예시
+const transferMoney = async (fromUserId: number, toUserId: number, amount: number) => {
+    return await getConnection(async (query) => {
+        // 송신자 잔액 확인
+        const fromUser = await query<User[]>(
+            'SELECT balance FROM users WHERE id = ? FOR UPDATE',
+            fromUserId
+        );
+        
+        if (fromUser[0].balance < amount) {
+            throw new Error('잔액이 부족합니다');
         }
-    };
+        
+        // 송신자 잔액 차감
+        await query<SqlInsertUpdateResult>(
+            'UPDATE users SET balance = balance - ? WHERE id = ?',
+            amount, fromUserId
+        );
+        
+        // 수신자 잔액 증가
+        await query<SqlInsertUpdateResult>(
+            'UPDATE users SET balance = balance + ? WHERE id = ?',
+            amount, toUserId
+        );
+        
+        // 거래 내역 기록
+        const result = await query<SqlInsertUpdateResult>(
+            'INSERT INTO transactions SET ?',
+            { from_user_id: fromUserId, to_user_id: toUserId, amount, created_at: new Date() }
+        );
+        
+        return { transactionId: result.insertId, amount };
+    }, true); // 트랜잭션 모드
+};
+
+// 사용
+transferMoney(1, 2, 1000)
+    .then(result => {
+        console.log('이체 성공:', result);
+    })
+    .catch(error => {
+        console.error('이체 실패, 자동 롤백됨:', error);
+    });
+```
+
+### INSERT/UPDATE/DELETE 예시
+
+```typescript
+import { SqlInsertUpdateResult } from 'mysql-rowquery';
+
+// INSERT
+const createUser = async (userData: Partial<User>) => {
+    const result = await query<SqlInsertUpdateResult>(
+        'INSERT INTO users SET ?',
+        userData
+    );
+    return result.insertId;
+};
+
+// UPDATE
+const updateUser = async (userId: number, userData: Partial<User>) => {
+    const result = await query<SqlInsertUpdateResult>(
+        'UPDATE users SET ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        userData,
+        userId
+    );
+    return result.affectedRows;
+};
+
+// UPSERT
+const upsertUserProfile = async (userId: number, profileData: any) => {
+    const result = await query<SqlInsertUpdateResult>(
+        `INSERT INTO user_profiles SET ?
+         ON DUPLICATE KEY UPDATE ?, updated_at = CURRENT_TIMESTAMP`,
+        { ...profileData, user_id: userId },
+        profileData
+    );
+    return result;
+};
+
+// DELETE
+const deleteUser = async (userId: number) => {
+    const result = await query<SqlInsertUpdateResult>(
+        'DELETE FROM users WHERE id = ?',
+        userId
+    );
+    return result.affectedRows > 0;
+};
+```
+
+## 설정 함수
+
+### 로깅 설정
+
+```typescript
+import { setLog, LogType } from 'mysql-rowquery';
+
+// 모든 SQL과 결과를 JSON으로 출력
+setLog(LogType.ALL);
+
+// SQL과 간단한 결과만 출력
+setLog(LogType.SIMPLE);
+
+// 로그 출력 안함
+setLog(LogType.NONE);
+```
+
+### 슬로우 쿼리 모니터링
+
+```typescript
+import { 
+    setSlowQuery, 
+    setSlowQueryTime, 
+    getSlowQueryList, 
+    clearSlowQueryList 
+} from 'mysql-rowquery';
+
+// 슬로우 쿼리 모니터링 활성화
+setSlowQuery(true);
+
+// 슬로우 쿼리 기준 시간 설정 (밀리초)
+setSlowQueryTime(2000); // 2초 이상
+
+// 감지된 슬로우 쿼리 목록 조회
+const slowQueries = getSlowQueryList();
+if (slowQueries) {
+    for (const slowQuery of slowQueries) {
+        console.log(`슬로우 쿼리: ${slowQuery.time}ms`, slowQuery.query);
+    }
 }
 
 const query = createTypedSelectQuery('SELECT id, name, created_at FROM users WHERE status = ?');
@@ -164,9 +423,7 @@ const withQuery = createTypedSelectQuery(`
 ### 지원하는 SQL 패턴
 
 ```typescript
-// ✅ 기본 컬럼
-ExtractColumns<'SELECT id, name FROM users'>
-// ["id", "name"]
+import { setLimit, setParser, setErrorLog } from 'mysql-rowquery';
 
 // ✅ 별칭
 ExtractColumns<'SELECT id as user_id FROM users'>

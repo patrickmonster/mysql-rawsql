@@ -1,7 +1,7 @@
 {
-    "name": "mysql-rawquery",
-    "version": "1.1.2",
-    "description": "mysql raw query",
+    "name": "typed-sql",
+    "version": "1.0.0",
+    "description": "TypeScript SQL query parser with compile-time column type extraction",
     "main": "dist/cjs/index.js",
     "module": "dist/mjs/index.js",
     "types": "dist/index.d.ts",
@@ -10,7 +10,9 @@
         "build": "rm -fr dist/* && tsc -p tsconfig.json && tsc -p tsconfig-cjs.json && ./fixup.sh",
         "test": "jest",
         "test:watch": "jest --watch",
-        "test:coverage": "jest --coverage"
+        "test:coverage": "jest --coverage",
+        "prepublishOnly": "npm run test && npm run build",
+        "clean": "rm -rf dist"
     },
     "exports": {
         ".": {
@@ -20,10 +22,10 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/patrickmonster/mysql-rawsql.git"
+        "url": "git+https://github.com/patrickmonster/typed-sql.git"
     },
     "author": "Soung jin Ryu <neocat@kakao.com>",
-    "homepage": "https://github.com/patrickmonster/mysql-rawsql#readme",
+    "homepage": "https://github.com/patrickmonster/typed-sql#readme",
     "license": "ISC",
     "devDependencies": {
         "@types/jest": "^30.0.0",
@@ -42,7 +44,21 @@
         "printWidth": 120,
         "tabWidth": 4
     },
-    "dependencies": {
-        "mysql2": "^3.12.0"
-    }
+    "dependencies": {},
+    "keywords": [
+        "typescript",
+        "sql",
+        "parser",
+        "mysql",
+        "type-safe",
+        "compile-time",
+        "template-literal",
+        "column-extraction",
+        "query-builder"
+    ],
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ]
 }

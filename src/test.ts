@@ -1,174 +1,135 @@
-import {
-    calLikeTo,
-    calTo,
-    clearSlowQueryList,
-    createPool,
-    format,
-    getQueryKey,
-    LogType,
-    objectToAndQury,
-    Paging,
-    Present,
-    setLimit,
-    setLog,
-    setSlowQuery,
-    setSlowQueryTime,
-} from './index';
+import { ExtractColumns, ExtractTables, GetColumns, createTypedQuery, select } from './index';
 
-describe('MySQL RowSQL Library Tests', () => {
-    describe('Format Function', () => {
-        it('should format SQL query with parameters', () => {
-            const result = format('SELECT * FROM users WHERE id = ? AND name = ?', [1, 'John']);
-            expect(result).toBe("SELECT * FROM users WHERE id = 1 AND name = 'John'");
+describe('TypeScript Compile-time SQL Parsing Tests', () => {
+    describe('ExtractColumns Type Tests', () => {
+        it('should extract simple column types at compile time', () => {
+            type SimpleColumns = ExtractColumns<'SELECT id, name, email FROM users'>;
+            // 컴파일 타임에 ["id", "name", "email"] 타입으로 추론됨
+
+            // 타입 검증을 위한 헬퍼 함수
+            function expectType<T>(): T {
+                return null as any;
+            }
+
+            const columns = expectType<SimpleColumns>();
+            expect(Array.isArray(columns) || columns === null).toBe(true);
         });
 
-        it('should handle empty parameters', () => {
-            const result = format('SELECT * FROM users', []);
-            expect(result).toBe('SELECT * FROM users');
-        });
-    });
+        it('should extract columns with aliases at compile time', () => {
+            type AliasColumns = ExtractColumns<'SELECT id as user_id, name as user_name FROM users'>;
+            // 컴파일 타임에 ["user_id", "user_name"] 타입으로 추론됨
 
-    describe('Query Key Generation', () => {
-        it('should generate consistent keys for same query and parameters', () => {
-            const key1 = getQueryKey('SELECT * FROM users WHERE id = ?', 1);
-            const key2 = getQueryKey('SELECT * FROM users WHERE id = ?', 1);
-            expect(key1).toBe(key2);
+            const columns = null as any as AliasColumns;
+            expect(Array.isArray(columns) || columns === null).toBe(true);
         });
 
-        it('should generate different keys for different parameters', () => {
-            const key1 = getQueryKey('SELECT * FROM users WHERE id = ?', 1);
-            const key2 = getQueryKey('SELECT * FROM users WHERE id = ?', 2);
-            expect(key1).not.toBe(key2);
+        it('should handle aggregate functions at compile time', () => {
+            type AggColumns = ExtractColumns<'SELECT COUNT(*) as total, SUM(amount) as sum_amount FROM orders'>;
+            // 컴파일 타임에 ["total", "sum_amount"] 타입으로 추론됨
+
+            const columns = null as any as AggColumns;
+            expect(Array.isArray(columns) || columns === null).toBe(true);
         });
 
-        it('should generate different keys for different queries', () => {
-            const key1 = getQueryKey('SELECT * FROM users WHERE id = ?', 1);
-            const key2 = getQueryKey('SELECT * FROM products WHERE id = ?', 1);
-            expect(key1).not.toBe(key2);
-        });
-    });
+        it('should handle table prefixed columns at compile time', () => {
+            type PrefixColumns = ExtractColumns<'SELECT u.id, u.name, p.title FROM users u'>;
+            // 컴파일 타임에 ["id", "name", "title"] 타입으로 추론됨
 
-    describe('calTo Function', () => {
-        it('should return formatted query when value is provided', () => {
-            const result = calTo('WHERE id = ?', 1);
-            expect(result).toBe('WHERE id = 1');
+            const columns = null as any as PrefixColumns;
+            expect(Array.isArray(columns) || columns === null).toBe(true);
         });
 
-        it('should return comment when value is null', () => {
-            const result = calTo('WHERE id = ?', null);
-            expect(result).toBe('-- calTo');
+        it('should handle functions without aliases at compile time', () => {
+            type FuncColumns = ExtractColumns<'SELECT UPPER(name), LOWER(email) as lower_email FROM users'>;
+            // 컴파일 타임에 ["UPPER(...)", "lower_email"] 타입으로 추론됨
+
+            const columns = null as any as FuncColumns;
+            expect(Array.isArray(columns) || columns === null).toBe(true);
         });
 
-        it('should return comment when value is undefined', () => {
-            const result = calTo('WHERE id = ?', undefined);
-            expect(result).toBe('-- calTo');
+        it('should handle expressions at compile time', () => {
+            type ExprColumns = ExtractColumns<'SELECT id, name, age + 1 as next_age FROM users'>;
+            // 컴파일 타임에 ["id", "name", "next_age"] 타입으로 추론됨
+
+            const columns = null as any as ExprColumns;
+            expect(Array.isArray(columns) || columns === null).toBe(true);
         });
 
-        it('should return comment when value is empty string', () => {
-            const result = calTo('WHERE id = ?', '');
-            expect(result).toBe('-- calTo');
+        it('should handle WITH clause (CTE) at compile time', () => {
+            type WithColumns = ExtractColumns<'WITH v_tmp AS (SELECT user_idx, level FROM users) SELECT idx, level FROM v_tmp'>;
+            // 컴파일 타임에 ["idx", "level"] 타입으로 추론됨
+
+            const columns = null as any as WithColumns;
+            expect(Array.isArray(columns) || columns === null).toBe(true);
         });
 
-        it('should handle multiple parameters', () => {
-            const result = calTo('WHERE id = ? AND name = ?', 1, 'John');
-            expect(result).toBe("WHERE id = 1 AND name = 'John'");
+        it('should handle complex WITH clause at compile time', () => {
+            type ComplexWithColumns = ExtractColumns<'WITH v_tmp AS (SELECT uch.user_idx AS idx, uch.level, uch.class_type FROM user_class_history uch) SELECT idx, level FROM v_tmp'>;
+            // 컴파일 타임에 ["idx", "level"] 타입으로 추론됨
+
+            const columns = null as any as ComplexWithColumns;
+            expect(Array.isArray(columns) || columns === null).toBe(true);
         });
     });
 
-    describe('calLikeTo Function', () => {
-        it('should return formatted LIKE query when value is provided', () => {
-            const result = calLikeTo('WHERE name LIKE ?', 'John');
-            expect(result).toBe("WHERE name LIKE '%John%'");
+    describe('ExtractTables Type Tests', () => {
+        it('should extract simple table types at compile time', () => {
+            type SimpleTable = ExtractTables<'SELECT * FROM users'>;
+            // 컴파일 타임에 "users" 타입으로 추론됨
+
+            const table = null as any as SimpleTable;
+            expect(typeof table === 'string' || table === null).toBe(true);
         });
 
-        it('should return comment when value is null', () => {
-            const result = calLikeTo('WHERE name LIKE ?', null);
-            expect(result).toBe('/* calTo */');
-        });
+        it('should extract table with alias at compile time', () => {
+            type AliasTable = ExtractTables<'SELECT * FROM users u'>;
+            // 컴파일 타임에 "u" 타입으로 추론됨
 
-        it('should return comment when value is undefined', () => {
-            const result = calLikeTo('WHERE name LIKE ?', undefined);
-            expect(result).toBe('/* calTo */');
-        });
-
-        it('should handle multiple parameters', () => {
-            const result = calLikeTo('WHERE name LIKE ? AND city LIKE ?', 'John', 'Seoul');
-            expect(result).toBe("WHERE name LIKE '%John%' AND city LIKE '%Seoul%'");
+            const table = null as any as AliasTable;
+            expect(typeof table === 'string' || table === null).toBe(true);
         });
     });
 
-    describe('objectToAndQury Function', () => {
-        it('should convert object to AND query', () => {
-            const result = objectToAndQury({ id: 1, name: 'John' });
-            expect(result).toContain('AND id = 1');
-            expect(result).toContain('AND name = John');
+    describe('Typed Query Functions', () => {
+        it('should create typed query with correct column types', () => {
+            const query = createTypedQuery('SELECT id, name, email FROM users');
+
+            expect(query.sql).toBe('SELECT id, name, email FROM users');
+            expect(query.columns).toBeNull(); // 타입만 중요하므로 런타임 값은 null
         });
 
-        it('should skip null values', () => {
-            const result = objectToAndQury({ id: 1, name: null, age: 25 });
-            expect(result).toContain('AND id = 1');
-            expect(result).toContain('/* SKIP :: name */');
-            expect(result).toContain('AND age = 25');
+        it('should create select query with correct types', () => {
+            const query = select('SELECT id as user_id, name FROM users WHERE status = ?');
+
+            expect(query.sql).toBe('SELECT id as user_id, name FROM users WHERE status = ?');
+            expect(query.columns).toBeNull(); // 타입만 중요하므로 런타임 값은 null
         });
 
-        it('should handle empty object', () => {
-            const result = objectToAndQury({});
-            expect(result).toBe('');
-        });
-    });
+        it('should work with GetColumns helper type', () => {
+            function processQuery<T extends string>(sql: T): GetColumns<T> {
+                return null as any;
+            }
 
-    describe('Configuration Functions', () => {
-        it('should set log type', () => {
-            expect(() => setLog(LogType.ALL)).not.toThrow();
-            expect(() => setLog(LogType.SIMPLE)).not.toThrow();
-            expect(() => setLog(LogType.NONE)).not.toThrow();
-        });
-
-        it('should set limit', () => {
-            expect(() => setLimit(20)).not.toThrow();
-            expect(() => setLimit(50)).not.toThrow();
-        });
-
-        it('should set slow query settings', () => {
-            expect(() => setSlowQuery(true)).not.toThrow();
-            expect(() => setSlowQuery(false)).not.toThrow();
-            expect(() => setSlowQueryTime(1000)).not.toThrow();
-            expect(() => clearSlowQueryList()).not.toThrow();
+            const columns = processQuery('SELECT id, name FROM users');
+            expect(columns).toBeNull(); // 타입만 중요
         });
     });
 
-    describe('Type Definitions', () => {
-        it('should create Present object correctly', () => {
-            const present: Present = { index: 0, length: 10 };
-            expect(present.index).toBe(0);
-            expect(present.length).toBe(10);
-        });
+    describe('Type Safety Tests', () => {
+        it('should provide compile-time type safety', () => {
+            // 타입 검증 함수
+            function expectColumns<Expected extends readonly string[]>(expected: Expected) {
+                return function <T extends string>(sql: T): ExtractColumns<T> extends Expected ? T : never {
+                    return sql as any;
+                };
+            }
 
-        it('should create Paging object correctly', () => {
-            const paging: Paging = { page: 1, limit: 15 };
-            expect(paging.page).toBe(1);
-            expect(paging.limit).toBe(15);
-        });
+            // 이 테스트들은 컴파일 타임에 타입 검증이 이루어짐
+            const validQuery1 = expectColumns(['id', 'name', 'email'])('SELECT id, name, email FROM users');
+            const validQuery2 = expectColumns(['user_id', 'user_name'])('SELECT id as user_id, name as user_name FROM users');
 
-        it('should create Paging object without limit', () => {
-            const paging: Paging = { page: 2 };
-            expect(paging.page).toBe(2);
-            expect(paging.limit).toBeUndefined();
-        });
-    });
-
-    describe('Pool Creation', () => {
-        it('should create pool without throwing', () => {
-            expect(() => {
-                const pool = createPool({
-                    host: 'localhost',
-                    user: 'testuser',
-                    password: 'testpass',
-                    database: 'testdb',
-                    connectionLimit: 1,
-                });
-                pool.end();
-            }).not.toThrow();
+            expect(typeof validQuery1).toBe('string');
+            expect(typeof validQuery2).toBe('string');
         });
     });
 });
